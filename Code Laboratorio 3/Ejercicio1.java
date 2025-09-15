@@ -57,7 +57,15 @@ public class Ejercicio1 {
 
         try {
             String convertido = convertir(numero, baseOrigen, baseDestino);
-            System.out.printf("%s (base %d) = %s (base %d)%n%n", numero, baseOrigen, convertido, baseDestino);
+            System.out.printf("%s (base %d) = %s (base %d)%n", numero, baseOrigen, convertido, baseDestino);
+
+            Integer bits = leerBitsOpcional();
+            if (bits != null && bits > 0) {
+                BigInteger valor = new BigInteger(normalizarSigno(numero), baseOrigen);
+                String conBits = formatear(valor, baseDestino, bits);
+                System.out.printf("Con longitud de %d bits -> %s (base %d)%n", bits, conBits, baseDestino);
+            }
+            System.out.println();
         } catch (Exception e) {
             System.out.println("Error al convertir: " + e.getMessage() + "\n");
         }
@@ -81,8 +89,8 @@ public class Ejercicio1 {
                 return;
             }
 
-            // Mostrar en bin/oct/dec/hex por defecto.
-            imprimirTabla(det.valor, det.base);
+            Integer bits = leerBitsOpcional();
+            imprimirTabla(det.valor, det.base, bits);
             System.out.println();
         } catch (Exception e) {
             System.out.println("Error: " + e.getMessage() + "\n");
@@ -98,7 +106,8 @@ public class Ejercicio1 {
             System.out.println("Entrada inválida para la base especificada.\n");
             return;
         }
-        imprimirTabla(numero, baseOrigen);
+        Integer bits = leerBitsOpcional();
+        imprimirTabla(numero, baseOrigen, bits);
         System.out.println();
     }
 
@@ -140,12 +149,16 @@ public class Ejercicio1 {
     }
 
     private static void imprimirTabla(String numero, int baseOrigen) {
+        imprimirTabla(numero, baseOrigen, null);
+    }
+
+    private static void imprimirTabla(String numero, int baseOrigen, Integer bits) {
         BigInteger valor = new BigInteger(normalizarSigno(numero), baseOrigen);
         System.out.println("Representaciones equivalentes:\n");
-        System.out.printf("  Binario   (2) : %s%n", aBase(valor, 2));
-        System.out.printf("  Octal     (8) : %s%n", aBase(valor, 8));
-        System.out.printf("  Decimal  (10) : %s%n", aBase(valor, 10));
-        System.out.printf("  Hex      (16) : %s%n", aBase(valor, 16).toUpperCase(Locale.ROOT));
+        System.out.printf("  Binario   (2) : %s%n", formatear(valor, 2, bits));
+        System.out.printf("  Octal     (8) : %s%n", formatear(valor, 8, bits));
+        System.out.printf("  Decimal  (10) : %s%n", formatear(valor, 10, bits));
+        System.out.printf("  Hex      (16) : %s%n", formatear(valor, 16, bits).toUpperCase(Locale.ROOT));
     }
 
     private static String convertir(String numero, int baseOrigen, int baseDestino) {
@@ -159,10 +172,37 @@ public class Ejercicio1 {
         return (negativo ? "-" : "") + mag.toUpperCase(Locale.ROOT);
     }
 
+    private static String formatear(BigInteger valor, int baseDestino, Integer bits) {
+        if (bits == null || bits <= 0) {
+            return aBase(valor, baseDestino);
+        }
+        int requiredBits = valor.abs().equals(BigInteger.ZERO) ? 1 : valor.abs().bitLength();
+        if (requiredBits > bits) {
+            // No cabe en el ancho solicitado: informamos sin rellenar para evitar confusión
+            return aBase(valor, baseDestino) + " [excede " + bits + " bits]";
+        }
+        boolean negativo = valor.signum() < 0;
+        String mag = valor.abs().toString(baseDestino).toUpperCase(Locale.ROOT);
+
+        int digitosNecesarios = digitosParaBits(baseDestino, bits);
+        if (mag.length() < digitosNecesarios) {
+            mag = "0".repeat(digitosNecesarios - mag.length()) + mag;
+        }
+        return (negativo ? "-" : "") + mag;
+    }
+
     private static String normalizarSigno(String s) {
         if (s.startsWith("+"))
             return s.substring(1);
         return s;
+    }
+
+    private static int digitosParaBits(int base, int bits) {
+        if (base == 2)  return (int) Math.ceil(bits / 1.0);
+        if (base == 8)  return (int) Math.ceil(bits / 3.0);
+        if (base == 16) return (int) Math.ceil(bits / 4.0);
+        double log2b = Math.log(base) / Math.log(2);
+        return (int) Math.ceil(bits / log2b);
     }
 
     private static int leerBase(String etiqueta) {
@@ -183,6 +223,20 @@ public class Ejercicio1 {
     private static String leerNumero(String etiqueta) {
         System.out.print("Ingresa el " + etiqueta + ": ");
         return in.nextLine().trim();
+    }
+
+    private static Integer leerBitsOpcional() {
+        System.out.print("Longitud en bits (opcional, presiona Enter para omitir): ");
+        String s = in.nextLine().trim();
+        if (s.isEmpty()) return null;
+        try {
+            int b = Integer.parseInt(s);
+            if (b <= 0) throw new NumberFormatException();
+            return b;
+        } catch (NumberFormatException e) {
+            System.out.println("Valor inválido de bits. Se ignorará el formato fijo.\n");
+            return null;
+        }
     }
 
     private static boolean valida(String s, int base) {
